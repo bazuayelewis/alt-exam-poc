@@ -1,8 +1,7 @@
 --QUESTION 1
 /*
- ASSUMPTION 1:  Counting the number of times an item appeared on a successful customers' checkout.
+ ASSUMPTION 1:  Counting only the number of times an item appeared on a successful customers' checkout.
                 The QUANTITY of the item being checked out would NOT be considered.
-                Only the number of times it appeared in the checkout page would be counted.
  */
 with successful_orders as
 					(
@@ -16,6 +15,7 @@ with successful_orders as
 					group by 1,2)
 select *
 from successful_orders s
+--To avoid overfitting, I used a subquery to return the highest order where if there is a tie it returns the results
 where num_times_in_successful_orders = (select max(num_times_in_successful_orders) from successful_orders);
 
 
@@ -41,9 +41,8 @@ successful_customers_cart as (
 								),
 final_products_in_cart as (
 /* For this cte, I counted the number of times an action was carried out on an item in the cart.
-This is following the assumption that a customer who buys an item should only perform one action(add_to_cart) per product
-and if 2 actions(add_to_cart and removed_from_cart) were performed on the same item then the product was removed from cart
-*/
+ASSUMPTION 3: A customer who buys an item should only perform one action(add_to_cart) per item and if 2 actions
+              (add_to_cart and removed_from_cart) were performed on the same item then the item was not bought.  */
 							select customer_id, item_id 
 							from(
 								select customer_id ,item_id, count(item_id) as actions
@@ -87,16 +86,14 @@ where checkout_count = (select max(checkout_count) from top_performing_locations
 
 -- QUESTION 4 
 /*
- * ASSUMPTION 1: Asides from customers who had a failed or cancelled checkout status, 
+ ASSUMPTION 1: Asides from customers who had a failed or cancelled checkout status, 
                 people who did not get to the checkout page are also included as customers who abandoned carts
- * 
- * 
  */
 with unsuccessful_orders as(
 							select *
 							from alt_school.events e
 							where customer_id not in(
-													select customer_id from alt_school.events where event_data ->> 'status' = ('success')
+													select customer_id from alt_school.events where event_data ->> 'status' = 'success'
 													)
 								and event_data ->> 'event_type' not in ('visit','checkout')
 							)
@@ -106,19 +103,17 @@ group by customer_id
 order by num_events desc; 
 
 
-
-
 --QUESTION 5
 /*
-ASSUMPTION 1: avg_visit is the average number of visits a customer usually have before they make a purchase.
+ASSUMPTION 1: average_visit is the average number of visits a customer usually have before they make a purchase.
                 This is the average of all the total visits made by all customers before a successful order
 */
 with successful_orders_visits as(
 								select customer_id, count(event_data->> 'event_type') as total_visit 
                                 from alt_school.events 
-								where event_data ->> 'event_type' = ('visit') 
+								where event_data ->> 'event_type' = 'visit' 
 								and customer_id in(
-												select customer_id from alt_school.events where event_data ->> 'status' = ('success'))
+												select customer_id from alt_school.events where event_data ->> 'status' = 'success')
 								group by customer_id 
 								)
-select round(avg(total_visit), 2) as avg_visit from successful_orders_visits;
+select round(avg(total_visit), 2) as average_visit from successful_orders_visits;
