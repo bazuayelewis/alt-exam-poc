@@ -56,8 +56,8 @@ sales_record as (
                         (cast (quantity as int)*price) as amount_spent, "location"
 --quantity is gotten from the events table so it is in a string formart and had to be casted as an integer
                 from successful_customers_cart s
-				join final_products_in_cart f on s.customer_id = f.customer_id and s.item_id = f.item_id
-				join alt_school.customers c on s.customer_id = c.customer_id 
+				join final_products_in_cart f on s.customer_id = f.customer_id and s.item_id = f.item_id			
+                join alt_school.customers c on s.customer_id = c.customer_id 
 				join alt_school.products p on cast (s.item_id as int) = p.id
 				)
 select customer_id , "location" , sum(amount_spent) as total_spend
@@ -86,22 +86,22 @@ where checkout_count = (select max(checkout_count) from top_performing_locations
 
 -- QUESTION 4 
 /*
- ASSUMPTION 1: Asides from customers who had a failed or cancelled checkout status, 
-                people who did not get to the checkout page are also included as customers who abandoned carts
+ ASSUMPTION 1: abandoned_carts are from only customers who did not attempt to checkout but have a cart history(added to/removed from cart)
+                That means customers who checked out but failed or cancelled are NOT considered
  */
-with unsuccessful_orders as(
-							select *
+with abandoned_carts as(/*It is specified in the WHERE clause that customers who got to the checkout page
+                            should NOT be included and visits should also NOT be included */
+                            select *
 							from alt_school.events e
 							where customer_id not in(
-													select customer_id from alt_school.events where event_data ->> 'status' = 'success'
+													select customer_id from alt_school.events where event_data ->> 'event_type' = 'checkout'
 													)
-								and event_data ->> 'event_type' not in ('visit','checkout')
+								and event_data ->> 'event_type' not in ('visit')
 							)
 select customer_id, count(*) as num_events 
-from unsuccessful_orders
+from abandoned_carts
 group by customer_id
 order by num_events desc; 
-
 
 --QUESTION 5
 /*
